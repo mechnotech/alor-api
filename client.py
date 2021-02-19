@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from json import JSONDecodeError
+from aiofile import async_open
 
 import aiohttp
 import requests
@@ -11,7 +12,7 @@ from settings import (
     URL_OAUTH,
     URL_API,
     EXCHANGE,
-    LOGGING
+    LOGGING, FUTURES_SET
 )
 
 if LOGGING:
@@ -64,7 +65,7 @@ def get_portfolios(username):
             logging.error(f'Ошибка декодирования JSON: {e}')
 
 
-async def _get_orderbook(sec, depth=5):
+async def _get_orderbook(sec, depth=5, save=False):
     session = aiohttp.ClientSession()
     bearer = os.environ.get('JWT_TOKEN')
     headers = {"Content-Type": "application/json",
@@ -80,12 +81,16 @@ async def _get_orderbook(sec, depth=5):
 
     data = await res.json()
     await session.close()
+    if save:
+        async with async_open(f'futures_log/{sec}.txt', 'a+') as afp:
+            await afp.write(json.dumps(data) + '\n')
     return sec, data
 
 
-def get_orderbooks(sec_ls: list = None, depth: int = 5):
+def get_orderbooks(sec_ls: list = None, depth: int = 5, save=False):
     """
     Получить списки заявок bid/ask для ценных бумаг
+    :param save: Сохранять результат в файл (опция)
     :param depth: Глубина стакана
     :param sec_ls: Список ценных бумаг
     :return:
@@ -93,10 +98,21 @@ def get_orderbooks(sec_ls: list = None, depth: int = 5):
     if sec_ls is None:
         return None
 
-    futures = [_get_orderbook(sec, depth=depth) for sec in sec_ls]
+    futures = [_get_orderbook(sec, depth=depth, save=save) for sec in sec_ls]
     loop = asyncio.get_event_loop()
     orderbooks = loop.run_until_complete(asyncio.gather(*futures))
     return orderbooks
+
+
+def check_or_create_files():
+    for sec in FUTURES_SET:
+        try:
+            with open(f'futures_log/{sec}.txt', 'r'):
+                pass
+        except FileNotFoundError:
+            with open(f'futures_log/{sec}.txt', 'a+'):
+                pass
+            continue
 
 
 if __name__ == '__main__':
