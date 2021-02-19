@@ -260,6 +260,38 @@ def get_trade_info(ticker: str, portfolio: str, exchange: str = 'MOEX'):
     return _check_results(res)
 
 
+def get_fortrisk_info(portfolio: str, exchange: str = 'MOEX'):
+    """
+    Запрос информации о рисках
+
+    :param portfolio: Идентификатор клиентского портфеля
+    :param exchange: Биржа Available values : MOEX
+    :return: Simple JSON
+    """
+    res = requests.get(
+        url=f'{URL_API}/md/v2/'
+            f'Clients/{exchange}/{portfolio}/fortsrisk',
+        headers=_get_headers()
+    )
+    return _check_results(res)
+
+
+def get_risk_info(portfolio: str, exchange: str = 'MOEX'):
+    """
+    Запрос информации о рисках
+
+    :param portfolio: Идентификатор клиентского портфеля
+    :param exchange: Биржа Available values : MOEX, SPBX
+    :return: Simple JSON
+    """
+    res = requests.get(
+        url=f'{URL_API}/md/v2/'
+            f'Clients/{exchange}/{portfolio}/risk',
+        headers=_get_headers()
+    )
+    return _check_results(res)
+
+
 if __name__ == '__main__':
     get_jwt(REFRESH_TOKEN)
     # print(os.environ.get('JWT_TOKEN'))
@@ -267,3 +299,5 @@ if __name__ == '__main__':
     # print(get_order_info('7500031', '18995978560'))
     print(get_position_info('GDH1', '7500031'))
     print(get_trades_info('7500031'))
+    print(get_fortrisk_info('7500031'))
+    print(get_risk_info('7500031'))
