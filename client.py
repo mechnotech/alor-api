@@ -78,12 +78,12 @@ async def _get_orderbook(sec, depth=5):
         await session.close()
         return sec, None
 
-    data = await res.text()
+    data = await res.json()
     await session.close()
     return sec, data
 
 
-def get_orderbooks(depth: int = 5, sec_ls: list = None):
+def get_orderbooks(sec_ls: list = None, depth: int = 5):
     """
     Получить списки заявок bid/ask для ценных бумаг
     :param depth: Глубина стакана
