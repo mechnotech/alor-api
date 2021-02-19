@@ -1,6 +1,8 @@
+aiofile==3.3.3
 aiohttp==3.7.3
 async-timeout==3.0.1
 attrs==20.3.0
+caio==0.6.3
 certifi==2020.12.5
 chardet==3.0.4
 flake8==3.8.4
