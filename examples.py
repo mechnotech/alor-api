@@ -1,11 +1,13 @@
-from client import get_jwt_token, get_orderbooks, get_portfolios
+from client import get_jwt, get_orderbooks, get_portfolios
 from misc import print_orderbook
 from settings import REFRESH_TOKEN, USERNAME
 
 # Запросить JWT токен используя Refresh токен, JWT токен будет помещён в env
-get_jwt_token(REFRESH_TOKEN)
+get_jwt(REFRESH_TOKEN)
 
 # Запросить номера счетов пользователя для рынков:
+# Получение списка серверов. В ответе в поле tradeServerCode содержится
+# значение которое надо использовать
 portfolios = get_portfolios(USERNAME)
 for k, v in portfolios.items():
     print(k, v[0].get('portfolio'))
