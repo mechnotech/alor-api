@@ -139,6 +139,7 @@ def get_orders_info(portfolio: str, exchange: str = 'MOEX'):
 def get_order_info(portfolio: str, orderId: str, exchange: str = 'MOEX'):
     """
     Запрос информации о выбранной заявке
+
     :param portfolio: Идентификатор клиентского портфеля (например D39004)
     :param orderId: Идентификатор заявки (например 18995978560)
     :param exchange: Биржа Available values : MOEX, SPBX
@@ -151,14 +152,34 @@ def get_order_info(portfolio: str, orderId: str, exchange: str = 'MOEX'):
     return _check_results(res)
 
 
-def get_stoporders_info():
-    """Запрос информации о всех стоп-заявках"""
-    pass
+def get_stoporders_info(portfolio: str, exchange: str = 'MOEX'):
+    """Запрос информации о всех стоп-заявках
+
+    :param portfolio: Идентификатор клиентского портфеля (например D39004)
+    :param exchange: Биржа Available values : MOEX, SPBX
+    :return: Simple JSON
+    """
+    res = requests.get(
+        url=f'{URL_API}/md/v2/clients/{exchange}/{portfolio}/stoporders',
+        headers=_get_headers()
+    )
+    return _check_results(res)
 
 
-def get_stoporder_info():
-    """Запрос информации о выбранной стоп-заявке"""
-    pass
+def get_stoporder_info(portfolio: str, orderId: str, exchange: str = 'MOEX'):
+    """Запрос информации о выбранной стоп-заявке
+
+    :param portfolio: Идентификатор клиентского портфеля (например D39004)
+    :param orderId: Идентификатор заявки (например 18995978560)
+    :param exchange: Биржа Available values : MOEX, SPBX
+    :return: Simple JSON
+    """
+    res = requests.get(
+        url=f'{URL_API}/md/v2/clients/{exchange}'
+            f'/{portfolio}/stoporders/{orderId}',
+        headers=_get_headers()
+    )
+    return _check_results(res)
 
 
 def get_summary_info(portfolio: str, exchange: str = 'MOEX'):
@@ -210,7 +231,7 @@ def get_position_info(symbol: str, portfolio: str, exchange: str = 'MOEX'):
 
 if __name__ == '__main__':
     get_jwt(REFRESH_TOKEN)
-    print(os.environ.get('JWT_TOKEN'))
-    print(get_summary_info('7500031'))
-    print(get_order_info('7500031', '18995978560'))
+    # print(os.environ.get('JWT_TOKEN'))
+    # print(get_summary_info('7500031'))
+    # print(get_order_info('7500031', '18995978560'))
     print(get_position_info('GDH1', '7500031'))
