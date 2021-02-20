@@ -103,25 +103,6 @@ def get_portfolios(username):
     return _check_results(res)
 
 
-def get_orderbooks(sec_ls: list = None, depth: int = 5):
-    """
-    Получить списки заявок bid/ask для ценных бумаг
-
-    :param depth: Глубина стакана
-    :param sec_ls: Список ценных бумаг
-    :return: List[(Название бумаги, JSON), ... ]
-    """
-    if sec_ls is None:
-        return None
-    if isinstance(sec_ls, str):
-        sec_ls = [sec_ls]
-
-    futures = [_get_orderbook(sec, depth=depth) for sec in sec_ls]
-    loop = asyncio.get_event_loop()
-    orderbooks = loop.run_until_complete(asyncio.gather(*futures))
-    return orderbooks
-
-
 def get_orders_info(portfolio: str, exchange: str = 'MOEX'):
     """
     Запрос информации о всех заявках
@@ -349,7 +330,7 @@ def get_security_info(exchange: str, ticker: str):
     :return: Simple JSON
     """
     res = requests.get(
-        url=f'{URL_API}//md/v2/Securities/{exchange}/{ticker}',
+        url=f'{URL_API}/md/v2/Securities/{exchange}/{ticker}',
         headers=_get_headers()
     )
     return _check_results(res)
@@ -364,6 +345,30 @@ def get_quotes_list(symbols: str):
      Например MOEX:SBER,MOEX:GAZP,SPBX:AAPL
     :return: Simple JSON
     """
+    res = requests.get(
+        url=f'{URL_API}/md/v2/securities/{symbols}/quotes',
+        headers=_get_headers()
+    )
+    return _check_results(res)
+
+
+def get_orderbooks(sec_ls: list = None, depth: int = 5):
+    """
+    Получить списки заявок bid/ask для ценных бумаг
+
+    :param depth: Глубина стакана
+    :param sec_ls: Список ценных бумаг
+    :return: [(Название бумаги, JSON), ... ]
+    """
+    if sec_ls is None:
+        return None
+    if isinstance(sec_ls, str):
+        sec_ls = [sec_ls]
+
+    futures = [_get_orderbook(sec, depth=depth) for sec in sec_ls]
+    loop = asyncio.get_event_loop()
+    orderbooks = loop.run_until_complete(asyncio.gather(*futures))
+    return orderbooks
 
 
 if __name__ == '__main__':
@@ -377,7 +382,7 @@ if __name__ == '__main__':
     # print(get_risk_info('7500031'))
     print(get_securities_info('GAZP'))
     print(get_security_info('MOEX', 'GAZP'))
-
+    print(get_quotes_list('MOEX:SBER,MOEX:GAZP,SPBX:AAPL'))
     # result = get_exchange_securities('MOEX')
     # for r in result:
     #     print(r)
