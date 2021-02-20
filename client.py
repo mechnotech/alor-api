@@ -323,6 +323,20 @@ def get_securities_info(query: str,
     return _check_results(res)
 
 
+def get_exchange_securities(exchange: str):
+    """
+    Запрос информации об инструментах на выбранной бирже
+
+    :param exchange:  Биржа Available values : MOEX, SPBX
+
+    :return: Simple JSON
+    """
+    res = requests.get(
+        url=f'{URL_API}/md/v2/Securities/{exchange}',
+        headers=_get_headers()
+    )
+    return _check_results(res)
+
 if __name__ == '__main__':
     get_jwt(REFRESH_TOKEN)
     # print(os.environ.get('JWT_TOKEN'))
@@ -333,3 +347,4 @@ if __name__ == '__main__':
     # print(get_fortrisk_info('7500031'))
     # print(get_risk_info('7500031'))
     print(get_securities_info('GAZP'))
+    print(get_exchange_securities('MOEX'))
