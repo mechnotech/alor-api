@@ -307,7 +307,7 @@ def get_securities_info(query: str,
     :param sector: Рынок на бирже Available values : FORTS, FOND, CURR
     :param cficode: Код финансового инструмента по стандарту ISO 10962 (EXXXXX)
     :param query: Фильтр про инструменту GAZP
-    :return: Simple JSON
+    :return: [ Simple JSON ]
     """
     payload = {'query': query,
                'limit': limit,
@@ -323,9 +323,10 @@ def get_securities_info(query: str,
     return _check_results(res)
 
 
-def get_exchange_securities(exchange: str):
+def get_all_securities_info(exchange: str):
     """
     Запрос информации об инструментах на выбранной бирже
+    ВНИМАНИЕ! Возвращает все инструменты! ~ 25 мб
 
     :param exchange:  Биржа Available values : MOEX, SPBX
 
@@ -337,6 +338,34 @@ def get_exchange_securities(exchange: str):
     )
     return _check_results(res)
 
+
+def get_security_info(exchange: str, ticker: str):
+    """
+    Запрос информации о выбранном финансовом инструменте на бирже
+    (Аналог get_securities_info())
+
+    :param exchange: Биржа : MOEX, SPBX
+    :param ticker: Инструмент GAZP
+    :return: Simple JSON
+    """
+    res = requests.get(
+        url=f'{URL_API}//md/v2/Securities/{exchange}/{ticker}',
+        headers=_get_headers()
+    )
+    return _check_results(res)
+
+
+def get_quotes_list(symbols: str):
+    """
+    Запрос информации о котировках для выбранных инструментов и бирж
+
+    :param symbols: Принимает несколько пар биржа-тикер.
+     Пары отделены запятыми. Биржа и тикер разделены двоеточием.
+     Например MOEX:SBER,MOEX:GAZP,SPBX:AAPL
+    :return: Simple JSON
+    """
+
+
 if __name__ == '__main__':
     get_jwt(REFRESH_TOKEN)
     # print(os.environ.get('JWT_TOKEN'))
@@ -347,4 +376,9 @@ if __name__ == '__main__':
     # print(get_fortrisk_info('7500031'))
     # print(get_risk_info('7500031'))
     print(get_securities_info('GAZP'))
-    print(get_exchange_securities('MOEX'))
+    print(get_security_info('MOEX', 'GAZP'))
+
+    # result = get_exchange_securities('MOEX')
+    # for r in result:
+    #     print(r)
+    # print(len(result), '-- инструментов')
