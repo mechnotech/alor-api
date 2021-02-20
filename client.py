@@ -275,11 +275,13 @@ def get_risk_info(portfolio: str, exchange: str = 'MOEX'):
 
 
 # ------------------ Блок Ценные бумаги / инструменты ---------------------
-def get_securities_info(query: str,
-                        limit: int = None,
-                        sector: str = None,
-                        cficode: str = None,
-                        exchange: str = None):
+def get_securities_info(
+        query: str,
+        limit: int = None,
+        sector: str = None,
+        cficode: str = None,
+        exchange: str = None
+):
     """
     Запрос информации об имеющихся ценных бумагах
 
@@ -291,11 +293,11 @@ def get_securities_info(query: str,
     :return: [ Simple JSON ]
     """
     payload = {
-               'limit': limit,
-               'sector': sector,
-               'cficode': cficode,
-               'exchange': exchange
-               }
+        'limit': limit,
+        'sector': sector,
+        'cficode': cficode,
+        'exchange': exchange
+    }
     query = {'query': query}
     res = requests.get(
         url=f'{URL_API}/md/v2/securities',
@@ -377,7 +379,8 @@ def get_today_trades(
         exchange: str,
         ticker: str,
         start: int = None,
-        finish: int = None):
+        finish: int = None
+):
     """
     Запросить данные о всех сделках (лента) по ценным бумагам за сегодняшний
      день. Если указать UTC метки start и finish, вернет данные
