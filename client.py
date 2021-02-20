@@ -290,15 +290,17 @@ def get_securities_info(query: str,
     :param query: Фильтр про инструменту GAZP
     :return: [ Simple JSON ]
     """
-    payload = {'query': query,
+    payload = {
                'limit': limit,
                'sector': sector,
                'cficode': cficode,
                'exchange': exchange
                }
+    query = {'query': query}
     res = requests.get(
         url=f'{URL_API}/md/v2/securities',
-        params=payload,
+        params=query,
+        data=payload,
         headers=_get_headers()
     )
     return _check_results(res)
@@ -396,6 +398,56 @@ def get_today_trades(
     return _check_results(res)
 
 
+def get_futures_quotes(ticker: str, exchange: str = 'MOEX'):
+    """
+    Запрос информации о фьючерсах
+
+    :param exchange: Биржа MOEX
+    :param ticker: Инструмент SBRF
+    :return: Simple JSON
+    """
+    res = requests.get(
+        url=f'{URL_API}/md/v2/Securities/'
+            f'{exchange}/{ticker}/actualFuturesQuote',
+        headers=_get_headers()
+    )
+    return _check_results(res)
+
+
+def get_history(
+        exchange: str,
+        ticker: str,
+        start: int,
+        finish: int,
+        tf: int
+):
+    """
+    Запрос истории рынка для выбранных биржи и финансового инструмента.
+    Данные имеют задержку в 15 минут, если запрос не авторизован.
+    Для авторизованных клиентов задержка не применяется.
+
+    :param exchange: Биржа - допустимые значения MOEX, SPBX
+    :param ticker: Код инструмента SBER
+    :param start: От (unix time seconds)
+    :param finish: До (unix time seconds)
+    :param tf: Длительность таймфрейма в секундах.
+     Допустимые значения 15, 60, 300, 900, 3600, 86400
+    :return: Simple JSON
+    """
+    payload = {
+        'exchange': exchange,
+        'symbol': ticker,
+        'from': start,
+        'to': finish,
+        'tf': tf}
+    res = requests.get(
+        url=f'{URL_API}/md/v2/history',
+        params=payload,
+        headers=_get_headers()
+    )
+    return _check_results(res)
+
+
 if __name__ == '__main__':
     get_jwt(REFRESH_TOKEN)
     print(os.environ.get('JWT_TOKEN'))
@@ -405,14 +457,20 @@ if __name__ == '__main__':
     # print(get_trades_info('7500031'))
     # print(get_fortrisk_info('7500031'))
     # print(get_risk_info('7500031'))
-    print(get_securities_info('GAZP'))
+    # ??
+    print(get_securities_info(query='GAZP', exchange='MOEX'))
     print(get_security_info('MOEX', 'GAZP'))
-    print(get_quotes_list('MOEX:SBER,MOEX:GAZP,SPBX:AAPL'))
-
-    results = get_today_trades('MOEX', 'GDH1', 1613744707932, 1613751791675)
-    for r in results:
+    print(get_futures_quotes('SBRF'))
+    results = get_history('MOEX', 'GAZP', 1613750579, 1613751791, 60)
+    for r in results.get('history'):
         print(r)
-    print(len(results), '-- трейдов за период (за сегодня)')
+    print(len(results.get('history')), '-- трейдов за период (за сегодня)')
+    # print(get_quotes_list('MOEX:SBER,MOEX:GAZP,SPBX:AAPL'))
+    #
+    # results = get_today_trades('MOEX', 'GDH1', 1613750579, 1613751791)
+    # for r in results:
+    #     print(r)
+    # print(len(results), '-- трейдов за период (за сегодня)')
     # results = get_exchange_securities('MOEX')
     # for r in result:
     #     print(r)
