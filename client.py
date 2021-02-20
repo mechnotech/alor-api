@@ -371,9 +371,34 @@ def get_orderbooks(sec_ls: list = None, depth: int = 5):
     return orderbooks
 
 
+def get_today_trades(
+        exchange: str,
+        ticker: str,
+        start: int = None,
+        finish: int = None):
+    """
+    Запросить данные о всех сделках (лента) по ценным бумагам за сегодняшний
+     день. Если указать UTC метки start и finish, вернет данные
+     трейдов в промежутке между ними.
+
+    :param exchange: Биржа : MOEX, SPBX
+    :param ticker: Инструмент GAZP
+    :param start: Начало отрезка времени (UTC) для фильтра результатов
+    :param finish: Конец отрезка времени (UTC) для фильтра результатов
+    :return: Simple JSON
+    """
+    payload = {'from': start, 'to': finish}
+    res = requests.get(
+        url=f'{URL_API}/md/v2/Securities/{exchange}/{ticker}/alltrades',
+        data=payload,
+        headers=_get_headers()
+    )
+    return _check_results(res)
+
+
 if __name__ == '__main__':
     get_jwt(REFRESH_TOKEN)
-    # print(os.environ.get('JWT_TOKEN'))
+    print(os.environ.get('JWT_TOKEN'))
     # print(get_summary_info('7500031'))
     # print(get_order_info('7500031', '18995978560'))
     # print(get_position_info('GDH1', '7500031'))
@@ -383,7 +408,12 @@ if __name__ == '__main__':
     print(get_securities_info('GAZP'))
     print(get_security_info('MOEX', 'GAZP'))
     print(get_quotes_list('MOEX:SBER,MOEX:GAZP,SPBX:AAPL'))
-    # result = get_exchange_securities('MOEX')
+
+    results = get_today_trades('MOEX', 'GDH1', 1613744707932, 1613751791675)
+    for r in results:
+        print(r)
+    print(len(results), '-- трейдов за период (за сегодня)')
+    # results = get_exchange_securities('MOEX')
     # for r in result:
     #     print(r)
     # print(len(result), '-- инструментов')
