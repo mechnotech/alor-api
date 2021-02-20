@@ -24,32 +24,6 @@ if LOGGING:
     )
 
 
-def get_jwt(refresh=REFRESH_TOKEN):
-    """
-    Создать JWT Token и поместить в env окружение процесса.
-    Следует вызывать перед любым обращением к другим функциям API
-    Время жизни JWT ~ 5 мин, обновляйте чаще!
-
-    :param refresh: Токен обновления, создается в личном кабинете
-    https://oauthdev.alor.ru
-    """
-    payload = {'token': refresh}
-    res = requests.post(
-        url=f'{URL_OAUTH}/refresh',
-        params=payload
-    )
-    if res.status_code != 200:
-        if LOGGING:
-            logging.error(f'Ошибка получения JWT токена: {res.status_code}')
-        return None
-    try:
-        token = res.json()
-        os.environ["JWT_TOKEN"] = token.get('AccessToken')
-    except JSONDecodeError as e:
-        if LOGGING:
-            logging.error(f'Ошибка декодирования JWT токена: {e}')
-
-
 def _get_headers():
     bearer = os.environ.get('JWT_TOKEN')
     if not bearer:
@@ -86,6 +60,33 @@ async def _get_orderbook(sec: str, depth: int = 5):
     data = await res.json()
     await session.close()
     return sec, data
+
+
+# ---------------- Блок "Информация о клиенте -------------------
+def get_jwt(refresh=REFRESH_TOKEN):
+    """
+    Создать JWT Token и поместить в env окружение процесса.
+    Следует вызывать перед любым обращением к другим функциям API
+    Время жизни JWT ~ 5 мин, обновляйте чаще!
+
+    :param refresh: Токен обновления, создается в личном кабинете
+    https://oauthdev.alor.ru
+    """
+    payload = {'token': refresh}
+    res = requests.post(
+        url=f'{URL_OAUTH}/refresh',
+        params=payload
+    )
+    if res.status_code != 200:
+        if LOGGING:
+            logging.error(f'Ошибка получения JWT токена: {res.status_code}')
+        return None
+    try:
+        token = res.json()
+        os.environ["JWT_TOKEN"] = token.get('AccessToken')
+    except JSONDecodeError as e:
+        if LOGGING:
+            logging.error(f'Ошибка декодирования JWT токена: {e}')
 
 
 def get_portfolios(username):
@@ -292,12 +293,43 @@ def get_risk_info(portfolio: str, exchange: str = 'MOEX'):
     return _check_results(res)
 
 
+# ------------------ Блок Ценные бумаги / инструменты ---------------------
+def get_securities_info(query: str,
+                        limit: int = None,
+                        sector: str = None,
+                        cficode: str = None,
+                        exchange: str = None):
+    """
+    Запрос информации об имеющихся ценных бумагах
+
+    :param exchange: Фильтр по коду биржи MOEX или SPBX
+    :param limit: Ограничение на количество выдаваемых результатов поиска
+    :param sector: Рынок на бирже Available values : FORTS, FOND, CURR
+    :param cficode: Код финансового инструмента по стандарту ISO 10962 (EXXXXX)
+    :param query: Фильтр про инструменту GAZP
+    :return: Simple JSON
+    """
+    payload = {'query': query,
+               'limit': limit,
+               'sector': sector,
+               'cficode': cficode,
+               'exchange': exchange
+               }
+    res = requests.get(
+        url=f'{URL_API}/md/v2/securities',
+        params=payload,
+        headers=_get_headers()
+    )
+    return _check_results(res)
+
+
 if __name__ == '__main__':
     get_jwt(REFRESH_TOKEN)
     # print(os.environ.get('JWT_TOKEN'))
     # print(get_summary_info('7500031'))
     # print(get_order_info('7500031', '18995978560'))
-    print(get_position_info('GDH1', '7500031'))
-    print(get_trades_info('7500031'))
-    print(get_fortrisk_info('7500031'))
-    print(get_risk_info('7500031'))
+    # print(get_position_info('GDH1', '7500031'))
+    # print(get_trades_info('7500031'))
+    # print(get_fortrisk_info('7500031'))
+    # print(get_risk_info('7500031'))
+    print(get_securities_info('GAZP'))
