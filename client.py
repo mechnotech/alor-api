@@ -580,13 +580,62 @@ def set_limit_order(exchange: str, ticker: str, side: str, quantity: int,
     return _check_results(res)
 
 
+def set_stoploss(exchange: str, ticker: str, side: str, quantity: int,
+                 price: float, portfolio: str, order_id: str = None):
+    """
+    Создание стоп лосс заявки
+    В качестве идентификатора запроса (order_id) требуется уникальная
+        случайная строка. Если таковая не указана, генерируется случайно
+        в формате (пример 'LO-SELL-84695cfcf1ea46f7e2f22230730975eebf') и
+        возвращается в ответе.
+        Если уже приходил запрос с таким идентификатором, то заявка не будет
+        исполнена повторно, а в качестве ответа будет возвращена копия ответа
+        на предыдущий запрос с таким значением идентификатора.
+
+    :param exchange:
+    :param ticker:
+    :param side:
+    :param quantity:
+    :param price:
+    :param portfolio:
+    :param order_id:
+    :return:
+    """
+    account = os.getenv('ALOR_USERNAME')
+    if not order_id:
+        order_id = f'SL-{side.upper()}-{_random_order_id(account)}'
+    payload = {
+        "Quantity": quantity,
+        "Side": side,
+        "TriggerPrice": price,
+        "Instrument": {
+            "Symbol": ticker,
+            "Exchange": exchange
+        },
+        "User": {
+            "Account": account,
+            "Portfolio": portfolio
+        },
+        "OrderEndUnixTime": 0
+    }
+    headers = _get_headers()
+    headers['X-ALOR-REQID'] = order_id
+    res = requests.post(
+        url=f'{URL_API}/commandapi/warptrans/TRADE/'
+            f'v2/client/orders/actions/stopLoss',
+        headers=headers,
+        json=payload
+    )
+    return _check_results(res)
+
+
 if __name__ == '__main__':
     get_jwt(REFRESH_TOKEN)
     print(_is_working_hours())
     print(os.environ.get('JWT_TOKEN'))
 
     # print(_random_order_id('ddd'))
-    print(set_limit_order('MOEX', 'GDH1', 'sell', 1, 1800.1, '7500031'))
+    print(set_limit_order('MOEX', 'GDH1', 'sell', 1, 1800, '7500031'))
     # print(get_summary_info('7500031'))
     # print(get_order_info('7500031', '18995978560'))
     # print(get_position_info('GDH1', '7500031'))
