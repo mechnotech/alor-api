@@ -529,13 +529,64 @@ def set_market_order(exchange: str, ticker: str, side: str, quantity: int,
     return _check_results(res)
 
 
+def set_limit_order(exchange: str, ticker: str, side: str, quantity: int,
+                    price: float, portfolio: str, order_id: str = None):
+    """
+    Создание отложенной рыночной заявки (LIMIT)
+
+        В качестве идентификатора запроса (order_id) требуется уникальная
+        случайная строка. Если таковая не указана, генерируется случайно
+        в формате (пример 'LO-SELL-84695cfcf1ea46f7e2f22230730975eebf') и
+        возвращается в ответе.
+        Если уже приходил запрос с таким идентификатором, то заявка не будет
+        исполнена повторно, а в качестве ответа будет возвращена копия ответа
+        на предыдущий запрос с таким значением идентификатора.
+
+    :param exchange: Биржа MOEX, SPBX
+    :param ticker: Инструмент GDH1
+    :param side: Купить или продать по рынку sell, buy
+    :param quantity: Количество лотов
+    :param price: Цена
+    :param portfolio: Идентификатор клиентского портфеля
+    :param order_id: Уникальная строка ордера
+    :return: Simple JSON
+    """
+    account = os.getenv('ALOR_USERNAME')
+    if not order_id:
+        order_id = f'MO-{side.upper()}-{_random_order_id(account)}'
+    payload = {
+        "symbol": ticker,
+        "side": side,
+        "type": "market",
+        "quantity": quantity,
+        "price": price,
+        "instrument": {
+            "symbol": ticker,
+            "exchange": exchange
+        },
+        "user": {
+            "account": account,
+            "portfolio": portfolio
+        }
+    }
+    headers = _get_headers()
+    headers['X-ALOR-REQID'] = f'{portfolio};{order_id};{quantity}'
+    res = requests.post(
+        url=f'{URL_API}/commandapi/warptrans/TRADE/'
+            f'v2/client/orders/actions/limit',
+        headers=headers,
+        json=payload
+    )
+    return _check_results(res)
+
+
 if __name__ == '__main__':
     get_jwt(REFRESH_TOKEN)
     print(_is_working_hours())
     print(os.environ.get('JWT_TOKEN'))
 
     # print(_random_order_id('ddd'))
-    # print(set_market_order('MOEX', 'GDH1', 'sell', 1, '7500031'))
+    print(set_limit_order('MOEX', 'GDH1', 'sell', 1, 1800.1, '7500031'))
     # print(get_summary_info('7500031'))
     # print(get_order_info('7500031', '18995978560'))
     # print(get_position_info('GDH1', '7500031'))
