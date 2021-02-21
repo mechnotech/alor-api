@@ -451,6 +451,24 @@ def get_history(
     return _check_results(res)
 
 
+# ------------- Другое --------------------------
+def get_time():
+    """
+    Запрос текущего UTC времени в формате Unix. Если этот запрос выполнен
+    без авторизации, то будет возвращено время, которое было 15 минут назад.
+
+    :return:
+    """
+    res = requests.get(
+        url=f'{URL_API}/md/v2/time',
+        headers=_get_headers()
+    )
+    return _check_results(res)
+
+# ------------- Работа с заявками ---------------
+def create_market_ord():
+    pass
+
 if __name__ == '__main__':
     get_jwt(REFRESH_TOKEN)
     print(os.environ.get('JWT_TOKEN'))
@@ -461,13 +479,14 @@ if __name__ == '__main__':
     # print(get_fortrisk_info('7500031'))
     # print(get_risk_info('7500031'))
     # ??
-    print(get_securities_info(query='GAZP', exchange='MOEX'))
-    print(get_security_info('MOEX', 'GAZP'))
-    print(get_futures_quotes('SBRF'))
-    results = get_history('MOEX', 'GAZP', 1613750579, 1613751791, 60)
-    for r in results.get('history'):
-        print(r)
-    print(len(results.get('history')), '-- трейдов за период (за сегодня)')
+    # print(get_securities_info(query='GAZP', exchange='MOEX'))
+    # print(get_security_info('MOEX', 'GAZP'))
+    # print(get_futures_quotes('SBRF'))
+    print(get_time())
+    # results = get_history('MOEX', 'GAZP', 1613750579, 1613751791, 60)
+    # for r in results.get('history'):
+    #     print(r)
+    # print(len(results.get('history')), '-- трейдов за период (за сегодня)')
     # print(get_quotes_list('MOEX:SBER,MOEX:GAZP,SPBX:AAPL'))
     #
     # results = get_today_trades('MOEX', 'GDH1', 1613750579, 1613751791)
