@@ -1,7 +1,9 @@
 import asyncio
+import hashlib
 import json
 import logging
 import os
+from datetime import datetime, date
 from json import JSONDecodeError
 
 import aiohttp
@@ -24,6 +26,20 @@ if LOGGING:
     )
 
 
+def _random_order_id(data):
+    now = datetime.now()
+    ts = datetime.timestamp(now)
+    data = data + str(ts)
+    order_id = hashlib.sha256(data.encode('utf-8')).hexdigest()
+    return order_id[:-30]
+
+
+def _is_working_hours():
+    if 0 <= date.today().weekday() < 5 and 10 <= datetime.now().hour < 23:
+        return True
+    return False
+
+
 def _get_headers():
     bearer = os.environ.get('JWT_TOKEN')
     if not bearer:
@@ -38,7 +54,7 @@ def _get_headers():
 def _check_results(res):
     if res.status_code != 200:
         if LOGGING:
-            logging.error(f'Ошибка: {res.status_code}')
+            logging.error(f'Ошибка: {res.status_code} {res.text}')
         return
     try:
         return json.loads(res.content)
@@ -275,13 +291,8 @@ def get_risk_info(portfolio: str, exchange: str = 'MOEX'):
 
 
 # ------------------ Блок Ценные бумаги / инструменты ---------------------
-def get_securities_info(
-        query: str,
-        limit: int = None,
-        sector: str = None,
-        cficode: str = None,
-        exchange: str = None
-):
+def get_securities_info(query: str, limit: int = None, sector: str = None,
+                        cficode: str = None, exchange: str = None):
     """
     Запрос информации об имеющихся ценных бумагах
 
@@ -465,13 +476,66 @@ def get_time():
     )
     return _check_results(res)
 
+
 # ------------- Работа с заявками ---------------
-def create_market_ord():
-    pass
+def set_market_order(exchange: str, ticker: str, side: str, quantity: int,
+                     portfolio: str, order_id: str = None):
+    """
+    Создание рыночной заявки ПО РЫНКУ
+
+    В качестве идентификатора запроса (order_id) требуется уникальная
+    случайная строка. Если таковая не указана, генерируется случайно
+    в формате (пример 'MO-BUY-64695cfc71ea46f7e2f22230730975eebc') и
+    возвращается в ответе.
+    Если уже приходил запрос с таким идентификатором, то заявка не будет
+    исполнена повторно, а в качестве ответа будет возвращена копия ответа
+    на предыдущий запрос с таким значением идентификатора.
+
+
+    :param exchange: Биржа MOEX, SPBX
+    :param ticker: Инструмент GDH1
+    :param side: Купить или продать по рынку sell, buy
+    :param quantity: Количество лотов
+    :param portfolio: Идентификатор клиентского портфеля
+    :param order_id: Уникальная строка ордера
+    :return: Simple JSON
+    """
+    account = os.getenv('ALOR_USERNAME')
+    if not order_id:
+        order_id = f'MO-{side.upper()}-{_random_order_id(account)}'
+    payload = {
+        "symbol": ticker,
+        "side": side,
+        "type": "market",
+        "quantity": quantity,
+        "instrument": {
+            "symbol": ticker,
+            "exchange": exchange
+        },
+        "user": {
+            "account": account,
+            "portfolio": portfolio
+        }
+    }
+
+    headers = _get_headers()
+    headers['X-ALOR-REQID'] = f'{portfolio};{order_id};{quantity}'
+    res = requests.post(
+        url=f'{URL_API}/commandapi/warptrans/TRADE/'
+            f'v2/client/orders/actions/market',
+        headers=headers,
+        json=payload
+    )
+    return _check_results(res)
+
 
 if __name__ == '__main__':
     get_jwt(REFRESH_TOKEN)
+    print(_is_working_hours())
     print(os.environ.get('JWT_TOKEN'))
+
+    # print(_random_order_id('ddd'))
+    # print(set_market_order('MOEX', 'GDH1', 'sell', 1, '7500031'))
     # print(get_summary_info('7500031'))
     # print(get_order_info('7500031', '18995978560'))
     # print(get_position_info('GDH1', '7500031'))
@@ -482,7 +546,7 @@ if __name__ == '__main__':
     # print(get_securities_info(query='GAZP', exchange='MOEX'))
     # print(get_security_info('MOEX', 'GAZP'))
     # print(get_futures_quotes('SBRF'))
-    print(get_time())
+    # print(get_time())
     # results = get_history('MOEX', 'GAZP', 1613750579, 1613751791, 60)
     # for r in results.get('history'):
     #     print(r)
