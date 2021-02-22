@@ -9,7 +9,6 @@ from json import JSONDecodeError
 import aiohttp
 import requests
 from settings import (
-    REFRESH_TOKEN,
     URL_OAUTH,
     URL_API,
     EXCHANGE,
@@ -78,31 +77,52 @@ async def _get_orderbook(sec: str, depth: int = 5):
     return sec, data
 
 
-# ---------------- Блок "Информация о клиенте -------------------
-def get_jwt(refresh=REFRESH_TOKEN):
-    """
-    Создать JWT Token и поместить в env окружение процесса.
-    Следует вызывать перед любым обращением к другим функциям API
-    Время жизни JWT ~ 5 мин, обновляйте чаще!
+class Connection:
 
-    :param refresh: Токен обновления, создается в личном кабинете
-    https://oauthdev.alor.ru
-    """
-    payload = {'token': refresh}
-    res = requests.post(
-        url=f'{URL_OAUTH}/refresh',
-        params=payload
-    )
-    if res.status_code != 200:
-        if LOGGING:
-            logging.error(f'Ошибка получения JWT токена: {res.status_code}')
-        return None
-    try:
-        token = res.json()
-        os.environ["JWT_TOKEN"] = token.get('AccessToken')
-    except JSONDecodeError as e:
-        if LOGGING:
-            logging.error(f'Ошибка декодирования JWT токена: {e}')
+    @property
+    def get_jwt(self):
+        """
+        Создать JWT Token и поместить в env окружение процесса.
+        Следует вызывать перед любым обращением к другим функциям API
+        Время жизни JWT ~ 5 мин, обновляйте чаще!
+
+        Токен обновления, создается в личном кабинете
+        https://oauthdev.alor.ru
+        :return: JSON
+        """
+        payload = {'token': self.refresh_token}
+        res = requests.post(
+            url=f'{URL_OAUTH}/refresh',
+            params=payload
+        )
+        if res.status_code != 200:
+            if LOGGING:
+                logging.error(
+                    f'Ошибка получения JWT токена: {res.status_code}')
+            return None
+        try:
+            token = res.json()
+            self.jwt_token = token.get('AccessToken')
+        except JSONDecodeError as e:
+            if LOGGING:
+                logging.error(f'Ошибка декодирования JWT токена: {e}')
+                return None
+
+    def __init__(self, refresh=None, username=None):
+        self.jwt_token = ''
+        self.username = username
+        self.refresh_token = refresh
+        if not refresh:
+            self.refresh_token = os.getenv('REFRESH_TOKEN')
+        if not username:
+            self.username = os.getenv('ALOR_USERNAME')
+
+
+
+    # ---------------- Блок "Информация о клиенте -------------------
+
+
+
 
 
 def get_portfolios(username):
@@ -631,7 +651,7 @@ def set_stoploss(exchange: str, ticker: str, side: str, quantity: int,
 
 
 if __name__ == '__main__':
-    get_jwt(REFRESH_TOKEN)
+    #get_jwt(REFRESH_TOKEN)
     print(_is_working_hours())
     print(os.environ.get('JWT_TOKEN'))
 
