@@ -478,14 +478,36 @@ def get_time():
 
 
 # ------------- Работа с заявками ---------------
+def _payload_compose(ticker, side, quantity, exchange, account, portfolio):
+    return {
+        "symbol": ticker,
+        "side": side,
+        "type": "market",
+        "quantity": quantity,
+        "instrument": {
+            "symbol": ticker,
+            "exchange": exchange
+        },
+        "user": {
+            "account": account,
+            "portfolio": portfolio
+        }
+    }
+
+
+def _get_alor_reqid_headers(portfolio, order_id, quantity):
+    headers = _get_headers()
+    headers['X-ALOR-REQID'] = f'{portfolio};{order_id};{quantity}'
+    return
+
+
 def set_market_order(exchange: str, ticker: str, side: str, quantity: int,
                      portfolio: str, order_id: str = None):
     """
     Создание рыночной заявки ПО РЫНКУ
 
     В качестве идентификатора запроса (order_id) требуется уникальная
-    случайная строка. Если таковая не указана, генерируется случайно
-    в формате (пример 'MO-BUY-64695cfc71ea46f7e2f22230730975eebc') и
+    случайная строка. Новый номер ордера (назначается брокером)
     возвращается в ответе.
     Если уже приходил запрос с таким идентификатором, то заявка не будет
     исполнена повторно, а в качестве ответа будет возвращена копия ответа
@@ -503,28 +525,12 @@ def set_market_order(exchange: str, ticker: str, side: str, quantity: int,
     account = os.getenv('ALOR_USERNAME')
     if not order_id:
         order_id = f'MO-{side.upper()}-{_random_order_id(account)}'
-    payload = {
-        "symbol": ticker,
-        "side": side,
-        "type": "market",
-        "quantity": quantity,
-        "instrument": {
-            "symbol": ticker,
-            "exchange": exchange
-        },
-        "user": {
-            "account": account,
-            "portfolio": portfolio
-        }
-    }
-
-    headers = _get_headers()
-    headers['X-ALOR-REQID'] = f'{portfolio};{order_id};{quantity}'
     res = requests.post(
         url=f'{URL_API}/commandapi/warptrans/TRADE/'
             f'v2/client/orders/actions/market',
-        headers=headers,
-        json=payload
+        headers=_get_alor_reqid_headers(portfolio, order_id, quantity),
+        json=_payload_compose(ticker, side, quantity, exchange, account,
+                              portfolio)
     )
     return _check_results(res)
 
@@ -536,8 +542,9 @@ def set_limit_order(exchange: str, ticker: str, side: str, quantity: int,
 
         В качестве идентификатора запроса (order_id) требуется уникальная
     случайная строка. Если таковая не указана, генерируется случайно
-    в формате (пример 'LO-SELL-84695cfcf1ea46f7e2f22230730975eebf') и
-    возвращается в ответе.
+    в формате. В случае успеха, в ответе возвращается номер заявки,
+    который присвоила система и который нужно сохранить
+    (чтоб изменить или отменить заявку)
         Если уже приходил запрос с таким идентификатором, то заявка не будет
     исполнена повторно, а в качестве ответа будет возвращена копия ответа
     на предыдущий запрос с таким значением идентификатора.
@@ -569,12 +576,10 @@ def set_limit_order(exchange: str, ticker: str, side: str, quantity: int,
             "portfolio": portfolio
         }
     }
-    headers = _get_headers()
-    headers['X-ALOR-REQID'] = f'{portfolio};{order_id};{quantity}'
     res = requests.post(
         url=f'{URL_API}/commandapi/warptrans/TRADE/'
             f'v2/client/orders/actions/limit',
-        headers=headers,
+        headers=_get_alor_reqid_headers(portfolio, order_id, quantity),
         json=payload
     )
     return _check_results(res)
@@ -586,9 +591,7 @@ def set_stoploss(exchange: str, ticker: str, side: str, quantity: int,
     Создание стоп лосс заявки
 
         В качестве идентификатора запроса (order_id) требуется уникальная
-    случайная строка. Если таковая не указана, генерируется случайно
-    в формате (пример 'LO-SELL-84695cfcf1ea46f7e2f22230730975eebf') и
-    возвращается в ответе.
+    случайная строка. Если таковая не указана, генерируется случайно.
         Если уже приходил запрос с таким идентификатором, то заявка не будет
     исполнена повторно, а в качестве ответа будет возвращена копия ответа
     на предыдущий запрос с таким значением идентификатора.
@@ -630,15 +633,146 @@ def set_stoploss(exchange: str, ticker: str, side: str, quantity: int,
     return _check_results(res)
 
 
+def change_market_order(exchange: str, ticker: str, side: str, quantity: int,
+                        portfolio: str, order_id: str):
+    """
+    Правка рыночной заявки ПО РЫНКУ
+
+    В качестве идентификатора запроса (order_id) требуется уникальная
+    строка, соответствующая созданному ранее ордеру.
+    Если уже приходил запрос с таким идентификатором, то заявка не будет
+    исполнена повторно, а в качестве ответа будет возвращена копия ответа
+    на предыдущий запрос с таким значением идентификатора.
+
+
+    :param exchange: Биржа MOEX, SPBX
+    :param ticker: Инструмент GDH1
+    :param side: Купить или продать по рынку sell, buy
+    :param quantity: Количество лотов
+    :param portfolio: Идентификатор клиентского портфеля
+    :param order_id: Уникальная строка ордера
+    :return: Simple JSON
+    """
+    account = os.getenv('ALOR_USERNAME')
+    payload = {
+        "symbol": ticker,
+        "side": side,
+        "type": "market",
+        "quantity": quantity,
+        "instrument": {
+            "symbol": ticker,
+            "exchange": exchange
+        },
+        "user": {
+            "account": account,
+            "portfolio": portfolio
+        }
+    }
+
+    headers = _get_headers()
+    headers['X-ALOR-REQID'] = f'{portfolio};{order_id};{quantity}'
+    res = requests.put(
+        url=f'{URL_API}/commandapi/warptrans/TRADE/'
+            f'v2/client/orders/actions/market/{order_id}',
+        headers=headers,
+        json=payload
+    )
+    return _check_results(res)
+
+
+def change_limit_order(exchange: str, ticker: str, side: str, quantity: int,
+                       price: float, portfolio: str, order_id: str):
+    """
+    Изменение отложенной рыночной заявки (LIMIT)
+
+        В качестве идентификатора запроса (order_id) требуется уникальная
+    строка, соответствующая созданному ранее ордеру.
+        Если уже приходил запрос с таким идентификатором, то заявка не будет
+    исполнена повторно, а в качестве ответа будет возвращена копия ответа
+    на предыдущий запрос с таким значением идентификатора.
+
+    :param exchange: Биржа MOEX, SPBX
+    :param ticker: Инструмент GDH1
+    :param side: Купить или продать по рынку sell, buy
+    :param quantity: Количество лотов
+    :param price: Цена
+    :param portfolio: Идентификатор клиентского портфеля
+    :param order_id: Уникальная строка ордера
+    :return: Simple JSON
+    """
+    account = os.getenv('ALOR_USERNAME')
+    payload = {
+        "symbol": ticker,
+        "side": side,
+        "type": "market",
+        "quantity": quantity,
+        "price": price,
+        "instrument": {
+            "symbol": ticker,
+            "exchange": exchange
+        },
+        "user": {
+            "account": account,
+            "portfolio": portfolio
+        }
+    }
+    headers = _get_headers()
+    headers['X-ALOR-REQID'] = f'{portfolio};{order_id};{quantity}'
+    res = requests.put(
+        url=f'{URL_API}/commandapi/warptrans/TRADE/'
+            f'v2/client/orders/actions/limit/{order_id}',
+        headers=headers,
+        json=payload
+    )
+    return _check_results(res)
+
+
+def cancel_order(exchange: str, portfolio: str, order_id: str, stop: bool):
+    """
+    Снятие заявки
+
+    :param exchange:
+    :param portfolio:
+    :param order_id:
+    :param stop:
+    :return:
+    """
+    account = os.getenv('ALOR_USERNAME')
+    payload = {
+        'exchange': exchange,
+        'portfolio': portfolio,
+        'account': account,
+        'stop': 'true' if stop else 'false',
+        'format': 'Simple'
+    }
+    headers = _get_headers()
+    path_part = '/commandapi' if not stop else ''
+    res = requests.delete(
+        url=f'{URL_API}{path_part}/warptrans/TRADE/'
+            f'v2/client/orders/{order_id}',
+        headers=headers,
+        params=payload
+    )
+    if res.text == 'success':
+        return res.text
+    return _check_results(res)
+
+
 if __name__ == '__main__':
     get_jwt(REFRESH_TOKEN)
     print(_is_working_hours())
     print(os.environ.get('JWT_TOKEN'))
 
     # print(_random_order_id('ddd'))
-    print(set_limit_order('MOEX', 'GDH1', 'sell', 1, 1800, '7500031'))
-    # print(get_summary_info('7500031'))
-    # print(get_order_info('7500031', '18995978560'))
+    # print(set_limit_order('MOEX', 'GDH1', 'sell', 1, 1800, '7500031'))
+    print(get_orders_info('7500031'))
+    # print(set_market_order('MOEX', 'GDH1', 'sell', 1, '7500031'))
+    # print(get_order_info('7500031', '1985287317622885586'))
+    # print(get_order_info('7500031', '1985287317622885911'))
+    print(get_order_info('7500031', '1985287317622887365'))
+    print(cancel_order('MOEX', '7500031', '1985287317622890970', False))
+    # print(change_limit_order('MOEX', 'GDH1', 'sell', 1, 1801.5, '7500031',
+    #                         '1985287317622885586'))
     # print(get_position_info('GDH1', '7500031'))
     # print(get_trades_info('7500031'))
     # print(get_fortrisk_info('7500031'))
