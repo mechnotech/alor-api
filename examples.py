@@ -82,4 +82,3 @@ print(alor.get_history(ticker='GAZP', start=1614329535,
 
 # Запрос текущего UTC времени в формате Unix.
 print(alor.get_time())
-

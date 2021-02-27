@@ -832,38 +832,3 @@ class Api:
         if res.text == 'success':
             return res.text
         return self._check_results(res)
-
-
-if __name__ == '__main__':
-    pass
-    # get_jwt(REFRESH_TOKEN)
-    # print(_is_working_hours())
-    # print(os.environ.get('JWT_TOKEN'))
-
-    # print(_random_order_id('ddd'))
-    # print(set_limit_order('MOEX', 'GDH1', 'sell', 1, 1800, '7500031'))
-    # print(get_summary_info('7500031'))
-    # print(get_order_info('7500031', '18995978560'))
-    # print(get_position_info('GDH1', '7500031'))
-    # print(get_trades_info('7500031'))
-    # print(get_fortrisk_info('7500031'))
-    # print(get_risk_info('7500031'))
-    # ??
-    # print(get_securities_info(query='GAZP', exchange='MOEX'))
-    # print(get_security_info('MOEX', 'GAZP'))
-    # print(get_futures_quotes('SBRF'))
-    # print(get_time())
-    # results = get_history('MOEX', 'GAZP', 1613750579, 1613751791, 60)
-    # for r in results.get('history'):
-    #     print(r)
-    # print(len(results.get('history')), '-- трейдов за период (за сегодня)')
-    # print(get_quotes_list('MOEX:SBER,MOEX:GAZP,SPBX:AAPL'))
-    #
-    # results = get_today_trades('MOEX', 'GDH1', 1613750579, 1613751791)
-    # for r in results:
-    #     print(r)
-    # print(len(results), '-- трейдов за период (за сегодня)')
-    # results = get_exchange_securities('MOEX')
-    # for r in result:
-    #     print(r)
-    # print(len(result), '-- инструментов')
