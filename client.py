@@ -2,7 +2,6 @@ import asyncio
 import hashlib
 import json
 import logging
-import os
 from datetime import datetime, date
 from json import JSONDecodeError
 
@@ -16,7 +15,7 @@ from settings import (
 
 if LOGGING:
     logging.basicConfig(
-        filename='status.log',
+        filename='debug.log',
         filemode='a',
         format='%(asctime)s - %(levelname)s - %(message)s',
         datefmt='%d-%b-%y %H:%M:%S',
@@ -24,25 +23,7 @@ if LOGGING:
     )
 
 
-def _check_results(res):
-    if res.status_code != 200:
-        if LOGGING:
-            logging.error(f'Ошибка: {res.status_code} {res.text}')
-        return
-    try:
-        return json.loads(res.content)
-    except JSONDecodeError as e:
-        if LOGGING:
-            logging.error(f'Ошибка декодирования JSON: {e}')
-
-
-def _random_order_id(account: str) -> str:
-    data = account + str(datetime.timestamp(datetime.now()))
-    rand_id = hashlib.sha256(data.encode('utf-8')).hexdigest()
-    return rand_id[:-30]
-
-
-class Connection:
+class Api:
 
     @property
     def _headers(self):
@@ -59,18 +40,23 @@ class Connection:
         return headers
 
     @property
+    def _random_order_id(self) -> str:
+        data = self.username + str(datetime.timestamp(datetime.now()))
+        rand_id = hashlib.sha256(data.encode('utf-8')).hexdigest()
+        return rand_id[:-30]
+
+    @property
     def is_working_hours(self) -> bool:
         if 0 <= date.today().weekday() < 5 and 10 <= datetime.now().hour < 23:
             return True
         return False
 
     def __init__(self, refresh=None, username=None):
+        self.error = False
         self.username = username
         self.refresh_token = refresh
-        if not refresh:
-            self.refresh_token = os.getenv('REFRESH_TOKEN')
-        if not username:
-            self.username = os.getenv('ALOR_USERNAME')
+        self.refresh_token = refresh
+        self.username = username
         self.portfolio = None
         self.exchange = None
         self.token_ttl = None
@@ -78,9 +64,7 @@ class Connection:
 
     def _get_jwt_token(self):
         """
-        Создать JWT Token и поместить в env окружение процесса.
-        Следует вызывать перед любым обращением к другим функциям API
-        Время жизни JWT ~ 5 мин, обновляйте чаще!
+        Создать JWT Token
 
         Токен обновления, создается в личном кабинете
         https://oauthdev.alor.ru
@@ -95,6 +79,7 @@ class Connection:
             if LOGGING:
                 logging.error(
                     f'Ошибка получения JWT токена: {res.status_code}')
+            self.error = True
             return None
         try:
             token = res.json()
@@ -102,6 +87,7 @@ class Connection:
             self.token_ttl = int(datetime.timestamp(datetime.now()))
             return jwt
         except JSONDecodeError as e:
+            self.error = True
             if LOGGING:
                 logging.error(f'Ошибка декодирования JWT токена: {e}')
                 return None
@@ -117,7 +103,6 @@ class Connection:
                  ):
         if self.exchange:
             exchange = self.exchange
-        account = os.getenv('ALOR_USERNAME')
         payload = {
             "symbol": ticker,
             "side": side,
@@ -131,10 +116,25 @@ class Connection:
             "exchange": exchange
         }
         payload['user'] = {
-            "account": account,
+            "account": self.username,
             "portfolio": portfolio
         }
         return payload
+
+    def _check_results(self, res):
+        if res.status_code != 200:
+            self.error = True
+            if LOGGING:
+                logging.error(f'Ошибка: {res.status_code} {res.text}')
+            return
+        try:
+            result = json.loads(res.content)
+            self.error = False
+            return result
+        except JSONDecodeError as e:
+            self.error = True
+            if LOGGING:
+                logging.error(f'Ошибка декодирования JSON: {e}')
 
     # ---------------- Блок "Информация о клиенте -------------------
 
@@ -147,7 +147,7 @@ class Connection:
             url=f'{URL_API}/client/v1.0/users/{self.username}/portfolios',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def get_orders_info(self, portfolio: str = None, exchange: str = None):
         """
@@ -165,7 +165,7 @@ class Connection:
             url=f'{URL_API}/md/v2/clients/{exchange}/{portfolio}/orders',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def get_order_info(self, orderId: str, portfolio: str = None,
                        exchange: str = None):
@@ -186,7 +186,7 @@ class Connection:
                 f'/orders/{orderId}',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def get_stoporders_info(self, portfolio: str = None,
                             exchange: str = 'MOEX'):
@@ -204,7 +204,7 @@ class Connection:
             url=f'{URL_API}/md/v2/clients/{exchange}/{portfolio}/stoporders',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def get_stoporder_info(self, orderId: str, portfolio: str = None,
                            exchange: str = None):
@@ -224,7 +224,7 @@ class Connection:
                 f'/{portfolio}/stoporders/{orderId}',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def get_summary_info(self, portfolio: str = None, exchange: str = None):
         """
@@ -242,7 +242,7 @@ class Connection:
             url=f'{URL_API}/md/v2/clients/{exchange}/{portfolio}/summary',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def get_positions_info(self, portfolio: str = None, exchange: str = None):
         """
@@ -260,14 +260,14 @@ class Connection:
             url=f'{URL_API}/md/v2/Clients/{exchange}/{portfolio}/positions',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
-    def get_position_info(self, symbol: str, portfolio: str = None,
+    def get_position_info(self, ticker: str, portfolio: str = None,
                           exchange: str = None):
         """
         Запрос информации о позици по инструменту
 
-        :param symbol: Инструмент (GAZP)
+        :param ticker: Инструмент (GAZP)
         :param portfolio: Идентификатор клиентского портфеля
         :param exchange: Биржа Available values : MOEX, SPBX
         :return: Simple JSON
@@ -278,10 +278,10 @@ class Connection:
             exchange = self.exchange
         res = requests.get(
             url=f'{URL_API}/md/v2/'
-                f'Clients/{exchange}/{portfolio}/positions/{symbol}',
+                f'Clients/{exchange}/{portfolio}/positions/{ticker}',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def get_trades_info(self, portfolio: str = None, exchange: str = None):
         """Запрос информации о сделках
@@ -299,7 +299,7 @@ class Connection:
                 f'Clients/{exchange}/{portfolio}/trades',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def get_trade_info(self, ticker: str, portfolio: str = None,
                        exchange: str = None):
@@ -319,7 +319,7 @@ class Connection:
                 f'Clients/{exchange}/{portfolio}/{ticker}/trades',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def get_fortrisk_info(self, portfolio: str = None, exchange: str = None):
         """
@@ -338,7 +338,7 @@ class Connection:
                 f'Clients/{exchange}/{portfolio}/fortsrisk',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def get_risk_info(self, portfolio: str = None, exchange: str = None):
         """
@@ -357,11 +357,11 @@ class Connection:
                 f'Clients/{exchange}/{portfolio}/risk',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     # ------------------ Блок Ценные бумаги / инструменты ---------------------
 
-    def get_securities_info(self, query: str, limit: int = None,
+    def get_securities_info(self, ticker: str, limit: int = None,
                             sector: str = None, cficode: str = None,
                             exchange: str = None):
         """
@@ -372,7 +372,7 @@ class Connection:
         :param sector: Рынок на бирже Available values : FORTS, FOND, CURR
         :param cficode: Код финансового инструмента
         по стандарту ISO 10962 (EXXXXX)
-        :param query: Фильтр про инструменту GAZP
+        :param ticker: Фильтр про инструменту GAZP
         :return: [ Simple JSON ]
         """
         if self.exchange:
@@ -383,14 +383,14 @@ class Connection:
             'cficode': cficode,
             'exchange': exchange
         }
-        query = {'query': query}
+        query = {'query': ticker}
         res = requests.get(
             url=f'{URL_API}/md/v2/securities',
             params=query,
             data=payload,
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def get_all_securities_info(self, exchange: str = None):
         """
@@ -407,7 +407,7 @@ class Connection:
             url=f'{URL_API}/md/v2/Securities/{exchange}',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def get_security_info(self, ticker: str, exchange: str = None):
         """
@@ -424,7 +424,7 @@ class Connection:
             url=f'{URL_API}/md/v2/Securities/{exchange}/{ticker}',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def get_quotes_list(self, symbols: str):
         """
@@ -439,7 +439,7 @@ class Connection:
             url=f'{URL_API}/md/v2/securities/{symbols}/quotes',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     async def _get_orderbook(self, sec: str, depth: int = 5):
         session = aiohttp.ClientSession()
@@ -500,31 +500,31 @@ class Connection:
             data=payload,
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
-    def get_futures_quotes(self, ticker: str, exchange: str = None):
+    def get_futures_quotes(self, symbol: str, exchange: str = None):
         """
-        Запрос информации о фьючерсах
+        Запрос информации о фьючерсах (ближайшем)
 
         :param exchange: Биржа MOEX
-        :param ticker: Инструмент SBRF
+        :param symbol: Инструмент SBRF
         :return: Simple JSON
         """
         if self.exchange:
             exchange = self.exchange
         res = requests.get(
             url=f'{URL_API}/md/v2/Securities/'
-                f'{exchange}/{ticker}/actualFuturesQuote',
+                f'{exchange}/{symbol}/actualFuturesQuote',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def get_history(self,
-                    exchange: str,
                     ticker: str,
                     start: int,
                     finish: int,
-                    tf: int
+                    tfs: int,
+                    exchange: str = None
                     ):
         """
         Запрос истории рынка для выбранных биржи и финансового инструмента.
@@ -535,7 +535,7 @@ class Connection:
         :param ticker: Код инструмента SBER
         :param start: От (unix time seconds)
         :param finish: До (unix time seconds)
-        :param tf: Длительность таймфрейма в секундах.
+        :param tfs: Длительность таймфрейма в секундах.
          Допустимые значения 15, 60, 300, 900, 3600, 86400
         :return: Simple JSON
         """
@@ -546,13 +546,13 @@ class Connection:
             'symbol': ticker,
             'from': start,
             'to': finish,
-            'tf': tf}
+            'tf': tfs}
         res = requests.get(
             url=f'{URL_API}/md/v2/history',
             params=payload,
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     # ------------- Другое --------------------------
     def get_time(self):
@@ -567,7 +567,7 @@ class Connection:
             url=f'{URL_API}/md/v2/time',
             headers=self._headers
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     # ------------- Работа с заявками ---------------
 
@@ -599,7 +599,7 @@ class Connection:
         if self.portfolio:
             portfolio = self.portfolio
         if not order_id:
-            order_id = _random_order_id
+            order_id = self._random_order_id
         payload = self._payload(ticker, side, quantity, type_order='market',
                                 exchange=exchange)
         headers = self._headers
@@ -610,7 +610,7 @@ class Connection:
             headers=headers,
             json=payload
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def set_limit_order(self,
                         ticker: str,
@@ -645,7 +645,7 @@ class Connection:
         if self.exchange:
             exchange = self.exchange
         if not order_id:
-            order_id = _random_order_id
+            order_id = self._random_order_id
         payload = self._payload(ticker, side, quantity, type_order='limit',
                                 price=price, exchange=exchange)
         headers = self._headers
@@ -656,7 +656,7 @@ class Connection:
             headers=headers,
             json=payload
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def set_stoploss(self,
                      ticker: str,
@@ -690,9 +690,8 @@ class Connection:
             portfolio = self.portfolio
         if self.exchange:
             exchange = self.exchange
-        account = os.getenv('ALOR_USERNAME')
         if not order_id:
-            order_id = _random_order_id(account)
+            order_id = self._random_order_id
         payload = {
             "Quantity": quantity,
             "Side": side,
@@ -702,7 +701,7 @@ class Connection:
                 "Exchange": exchange
             },
             "User": {
-                "Account": account,
+                "Account": self.username,
                 "Portfolio": portfolio
             },
             "OrderEndUnixTime": 0
@@ -715,7 +714,7 @@ class Connection:
             headers=headers,
             json=payload
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def change_market_order(self,
                             ticker: str,
@@ -757,7 +756,7 @@ class Connection:
             headers=headers,
             json=payload
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def change_limit_order(self,
                            ticker: str,
@@ -798,7 +797,7 @@ class Connection:
             headers=headers,
             json=payload
         )
-        return _check_results(res)
+        return self._check_results(res)
 
     def cancel_order(self,
                      order_id: str,
@@ -815,11 +814,10 @@ class Connection:
         :param stop:
         :return:
         """
-        account = os.getenv('ALOR_USERNAME')
         payload = {
             'exchange': exchange,
             'portfolio': portfolio,
-            'account': account,
+            'account': self.username,
             'stop': 'true' if stop else 'false',
             'format': 'Simple'
         }
@@ -833,7 +831,7 @@ class Connection:
         )
         if res.text == 'success':
             return res.text
-        return _check_results(res)
+        return self._check_results(res)
 
 
 if __name__ == '__main__':
