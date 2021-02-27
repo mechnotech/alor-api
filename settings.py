@@ -5,7 +5,7 @@ load_dotenv()
 
 LOGGING = True
 DEVMODE = True
-
+TTL_JWT_TOKEN = 60
 USERNAME = os.getenv('ALOR_USERNAME')
 EXCHANGE = 'MOEX'
 REFRESH_TOKEN = os.getenv('REFRESH_TOKEN')
