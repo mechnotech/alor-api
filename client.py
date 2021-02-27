@@ -106,6 +106,36 @@ class Connection:
                 logging.error(f'Ошибка декодирования JWT токена: {e}')
                 return None
 
+    def _payload(self,
+                 ticker,
+                 side,
+                 quantity,
+                 type_order,
+                 price: float = None,
+                 portfolio: str = None,
+                 exchange: str = None,
+                 ):
+        if self.exchange:
+            exchange = self.exchange
+        account = os.getenv('ALOR_USERNAME')
+        payload = {
+            "symbol": ticker,
+            "side": side,
+            "type": type_order,
+            "quantity": quantity,
+        }
+        if price:
+            payload['price'] = price
+        payload['instrument'] = {
+            "symbol": ticker,
+            "exchange": exchange
+        }
+        payload['user'] = {
+            "account": account,
+            "portfolio": portfolio
+        }
+        return payload
+
     # ---------------- Блок "Информация о клиенте -------------------
 
     def get_portfolios(self):
@@ -568,26 +598,10 @@ class Connection:
         """
         if self.portfolio:
             portfolio = self.portfolio
-        if self.exchange:
-            exchange = self.exchange
-        account = os.getenv('ALOR_USERNAME')
         if not order_id:
             order_id = _random_order_id
-        payload = {
-            "symbol": ticker,
-            "side": side,
-            "type": "market",
-            "quantity": quantity,
-            "instrument": {
-                "symbol": ticker,
-                "exchange": exchange
-            },
-            "user": {
-                "account": account,
-                "portfolio": portfolio
-            }
-        }
-
+        payload = self._payload(ticker, side, quantity, type_order='market',
+                                exchange=exchange)
         headers = self._headers
         headers['X-ALOR-REQID'] = f'{portfolio};{order_id};{quantity}'
         res = requests.post(
@@ -605,7 +619,8 @@ class Connection:
                         price: float,
                         portfolio: str = None,
                         exchange: str = None,
-                        order_id: str = None):
+                        order_id: str = None,
+                        ):
         """
         Создание отложенной рыночной заявки (LIMIT)
 
@@ -629,24 +644,10 @@ class Connection:
             portfolio = self.portfolio
         if self.exchange:
             exchange = self.exchange
-        account = os.getenv('ALOR_USERNAME')
         if not order_id:
             order_id = _random_order_id
-        payload = {
-            "symbol": ticker,
-            "side": side,
-            "type": "market",
-            "quantity": quantity,
-            "price": price,
-            "instrument": {
-                "symbol": ticker,
-                "exchange": exchange
-            },
-            "user": {
-                "account": account,
-                "portfolio": portfolio
-            }
-        }
+        payload = self._payload(ticker, side, quantity, type_order='limit',
+                                price=price, exchange=exchange)
         headers = self._headers
         headers['X-ALOR-REQID'] = f'{portfolio};{order_id};{quantity}'
         res = requests.post(
@@ -664,7 +665,8 @@ class Connection:
                      price: float,
                      portfolio: str = None,
                      exchange: str = None,
-                     order_id: str = None):
+                     order_id: str = None,
+                     ):
         """
         Создание стоп лосс заявки
 
@@ -713,6 +715,124 @@ class Connection:
             headers=headers,
             json=payload
         )
+        return _check_results(res)
+
+    def change_market_order(self,
+                            ticker: str,
+                            side: str,
+                            quantity: int,
+                            order_id: str,
+                            portfolio: str = None,
+                            exchange: str = None,
+                            ):
+        """
+        Правка рыночной заявки ПО РЫНКУ
+
+        В качестве идентификатора запроса (order_id) требуется уникальная
+        строка, соответствующая созданному ранее ордеру.
+        Если уже приходил запрос с таким идентификатором, то заявка не будет
+        исполнена повторно, а в качестве ответа будет возвращена копия ответа
+        на предыдущий запрос с таким значением идентификатора.
+
+
+        :param exchange: Биржа MOEX, SPBX
+        :param ticker: Инструмент GDH1
+        :param side: Купить или продать по рынку sell, buy
+        :param quantity: Количество лотов
+        :param portfolio: Идентификатор клиентского портфеля
+        :param order_id: Уникальная строка ордера
+        :return: Simple JSON
+        """
+        if self.portfolio:
+            portfolio = self.portfolio
+        if self.exchange:
+            exchange = self.exchange
+        payload = self._payload(ticker, side, quantity, type_order='market',
+                                exchange=exchange)
+        headers = self._headers
+        headers['X-ALOR-REQID'] = f'{portfolio};{order_id};{quantity}'
+        res = requests.put(
+            url=f'{URL_API}/commandapi/warptrans/TRADE/'
+                f'v2/client/orders/actions/market/{order_id}',
+            headers=headers,
+            json=payload
+        )
+        return _check_results(res)
+
+    def change_limit_order(self,
+                           ticker: str,
+                           side: str,
+                           quantity: int,
+                           price: float,
+                           order_id: str,
+                           portfolio: str = None,
+                           exchange: str = None,
+                           ):
+        """
+        Изменение отложенной рыночной заявки (LIMIT)
+
+            В качестве идентификатора запроса (order_id) требуется уникальная
+        строка, соответствующая созданному ранее ордеру.
+        Если уже приходил запрос с таким идентификатором, то заявка не будет
+        исполнена повторно, а в качестве ответа будет возвращена копия ответа
+        на предыдущий запрос с таким значением идентификатора.
+
+        :param exchange: Биржа MOEX, SPBX
+        :param ticker: Инструмент GDH1
+        :param side: Купить или продать по рынку sell, buy
+        :param quantity: Количество лотов
+        :param price: Цена
+        :param portfolio: Идентификатор клиентского портфеля
+        :param order_id: Уникальная строка ордера
+        :return: Simple JSON
+        """
+        if self.portfolio:
+            portfolio = self.portfolio
+        payload = self._payload(ticker, side, quantity, type_order='limit',
+                                price=price, exchange=exchange)
+        headers = self._headers
+        headers['X-ALOR-REQID'] = f'{portfolio};{order_id};{quantity}'
+        res = requests.put(
+            url=f'{URL_API}/commandapi/warptrans/TRADE/'
+                f'v2/client/orders/actions/limit/{order_id}',
+            headers=headers,
+            json=payload
+        )
+        return _check_results(res)
+
+    def cancel_order(self,
+                     order_id: str,
+                     stop: bool,
+                     exchange: str = None,
+                     portfolio: str = None,
+                     ):
+        """
+        Снятие заявки
+
+        :param exchange:
+        :param portfolio:
+        :param order_id:
+        :param stop:
+        :return:
+        """
+        account = os.getenv('ALOR_USERNAME')
+        payload = {
+            'exchange': exchange,
+            'portfolio': portfolio,
+            'account': account,
+            'stop': 'true' if stop else 'false',
+            'format': 'Simple'
+        }
+        headers = self._headers
+        path_part = '/commandapi' if not stop else ''
+        res = requests.delete(
+            url=f'{URL_API}{path_part}/warptrans/TRADE/'
+                f'v2/client/orders/{order_id}',
+            headers=headers,
+            params=payload
+        )
+        if res.text == 'success':
+            return res.text
         return _check_results(res)
 
 
