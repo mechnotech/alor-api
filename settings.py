@@ -9,6 +9,7 @@ DEVMODE = True
 USERNAME = os.getenv('ALOR_USERNAME')
 EXCHANGE = 'MOEX'
 REFRESH_TOKEN = os.getenv('REFRESH_TOKEN')
+TTL_JWT_TOKEN = 60
 URL_OAUTH = f'https://oauth{"dev" if DEVMODE else ""}.alor.ru'
 URL_API = f'https://api{"dev" if DEVMODE else ""}.alor.ru'
 
