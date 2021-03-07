@@ -4,4 +4,4 @@ process.txt
 .idea
 .env
 /futures_log/
-status.log
+debug.log
