@@ -27,7 +27,7 @@ class Api:
 
     @property
     def _headers(self):
-        now = int()
+        now = int(datetime.timestamp(datetime.now()))
         if now - self.token_ttl > TTL_JWT_TOKEN:
             self.jwt_token = self._get_jwt_token()
         bearer = self.jwt_token
@@ -55,8 +55,6 @@ class Api:
         self.error = False
         self.username = username
         self.refresh_token = refresh
-        self.refresh_token = refresh
-        self.username = username
         self.portfolio = None
         self.exchange = None
         self.token_ttl = None
