@@ -13,7 +13,7 @@ alor.exchange = 'MOEX'
 print(alor.get_portfolios())
 
 # Указываем рынок (portfolio для срочного рынка)
-alor.portfolio = '7500031'
+alor.portfolio = '7500031_bad'
 
 # Запрос сводной информации
 print(alor.get_summary_info())
