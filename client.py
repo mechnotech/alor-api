@@ -57,7 +57,7 @@ class Api:
         self.refresh_token = refresh
         self.portfolio = None
         self.exchange = None
-        self.token_ttl = None
+        self.token_ttl = TTL_JWT_TOKEN
         self.jwt_token = self._get_jwt_token()
 
     def _get_jwt_token(self):
