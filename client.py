@@ -276,7 +276,7 @@ class Api:
             exchange = self.exchange
         res = requests.get(
             url=f'{URL_API}/md/v2/'
-                f'Clients/{exchange}/{portfolio}/positions/{ticker}',
+                f'clients/{exchange}/{portfolio}/positions/{ticker}',
             headers=self._headers
         )
         return self._check_results(res)
@@ -599,9 +599,9 @@ class Api:
         if not order_id:
             order_id = self._random_order_id
         payload = self._payload(ticker, side, quantity, type_order='market',
-                                exchange=exchange)
+                                exchange=exchange, portfolio=portfolio)
         headers = self._headers
-        headers['X-ALOR-REQID'] = f'{portfolio};{order_id};{quantity}'
+        headers['X-ALOR-REQID'] = f'{portfolio};{order_id}'
         res = requests.post(
             url=f'{URL_API}/commandapi/warptrans/TRADE/'
                 f'v2/client/orders/actions/market',
@@ -644,10 +644,13 @@ class Api:
             exchange = self.exchange
         if not order_id:
             order_id = self._random_order_id
-        payload = self._payload(ticker, side, quantity, type_order='limit',
-                                price=price, exchange=exchange)
+        payload = self._payload(ticker, side, quantity,
+                                type_order='limit',
+                                price=price,
+                                exchange=exchange,
+                                portfolio=portfolio)
         headers = self._headers
-        headers['X-ALOR-REQID'] = f'{portfolio};{order_id};{quantity}'
+        headers['X-ALOR-REQID'] = f'{portfolio};{order_id}'
         res = requests.post(
             url=f'{URL_API}/commandapi/warptrans/TRADE/'
                 f'v2/client/orders/actions/limit',
@@ -786,7 +789,9 @@ class Api:
         if self.portfolio:
             portfolio = self.portfolio
         payload = self._payload(ticker, side, quantity, type_order='limit',
-                                price=price, exchange=exchange)
+                                price=price,
+                                exchange=exchange,
+                                portfolio=portfolio)
         headers = self._headers
         headers['X-ALOR-REQID'] = f'{portfolio};{order_id};{quantity}'
         res = requests.put(
@@ -812,6 +817,10 @@ class Api:
         :param stop:
         :return:
         """
+        if self.exchange:
+            exchange = self.exchange
+        if self.portfolio:
+            portfolio = self.portfolio
         payload = {
             'exchange': exchange,
             'portfolio': portfolio,
