@@ -664,6 +664,8 @@ class Api:
                      side: str,
                      quantity: int,
                      price: float,
+                     trade_server_code: str,
+                     account: str,
                      portfolio: str = None,
                      exchange: str = None,
                      order_id: str = None,
@@ -678,12 +680,17 @@ class Api:
         исполнена повторно, а в качестве ответа будет возвращена копия ответа
         на предыдущий запрос с таким значением идентификатора.
 
+        :param account: Значение tks из выдачи get_portfolios(),
+        например (L01-00000F00)
+        :param trade_server_code: Код сервера, TRADE для фондового рынка, FX1
+        для валютного, см выдачу get_portfolios()
         :param exchange: Биржа MOEX, SPBX
         :param ticker: Инструмент GDH1
         :param side: Купить или продать по рынку sell, buy
         :param quantity: Количество лотов
         :param price: Цена
         :param portfolio: Идентификатор клиентского портфеля
+        из выдачи get_portfolios()
         :param order_id: Уникальная строка ордера
         :return: Simple JSON
         """
@@ -702,7 +709,7 @@ class Api:
                 "Exchange": exchange
             },
             "User": {
-                "Account": self.username,
+                "Account": account,
                 "Portfolio": portfolio
             },
             "OrderEndUnixTime": 0
@@ -710,8 +717,73 @@ class Api:
         headers = self._headers
         headers['X-ALOR-REQID'] = order_id
         res = requests.post(
-            url=f'{URL_API}/commandapi/warptrans/TRADE/'
+            url=f'{URL_API}/warptrans/{trade_server_code}/'
                 f'v2/client/orders/actions/stopLoss',
+            headers=headers,
+            json=payload
+        )
+        return self._check_results(res)
+
+    def set_take_profit(self,
+                        ticker: str,
+                        side: str,
+                        quantity: int,
+                        price: float,
+                        trade_server_code: str,
+                        account: str,
+                        portfolio: str = None,
+                        exchange: str = None,
+                        order_id: str = None,
+                        ):
+        """
+        Создание тэйк-профит заявки
+
+            В качестве идентификатора запроса (order_id) требуется уникальная
+        случайная строка. Если таковая не указана, генерируется случайно
+
+        Если уже приходил запрос с таким идентификатором, то заявка не будет
+        исполнена повторно, а в качестве ответа будет возвращена копия ответа
+        на предыдущий запрос с таким значением идентификатора.
+
+        :param account: Значение tks из выдачи get_portfolios(),
+        например (L01-00000F00)
+        :param trade_server_code: Код сервера, TRADE для фондового рынка, FX1
+        для валютного, см выдачу get_portfolios()
+        :param exchange: Биржа MOEX, SPBX
+        :param ticker: Инструмент GDH1
+        :param side: Купить или продать по рынку sell, buy
+        :param quantity: Количество лотов
+        :param price: Цена
+        :param portfolio: Идентификатор клиентского портфеля
+        из выдачи get_portfolios()
+        :param order_id: Уникальная строка ордера
+        :return: Simple JSON
+        """
+        if self.portfolio:
+            portfolio = self.portfolio
+        if self.exchange:
+            exchange = self.exchange
+        if not order_id:
+            order_id = self._random_order_id
+        payload = {
+            "Quantity": quantity,
+            "Side": side,
+            "TriggerPrice": price,
+            "Instrument": {
+                "Symbol": ticker,
+                "Exchange": exchange
+            },
+            "User": {
+                "Account": account,
+                "Portfolio": portfolio
+            },
+            "OrderEndUnixTime": 0
+        }
+        headers = self._headers
+        headers['X-ALOR-REQID'] = order_id
+        res = requests.post(
+            url=f'{URL_API}/warptrans/{trade_server_code}/'
+                f'v2/client/orders/actions/takeProfit',
             headers=headers,
             json=payload
         )
@@ -748,7 +820,7 @@ class Api:
         if self.exchange:
             exchange = self.exchange
         payload = self._payload(ticker, side, quantity, type_order='market',
-                                exchange=exchange)
+                                exchange=exchange, )
         headers = self._headers
         headers['X-ALOR-REQID'] = f'{portfolio};{order_id};{quantity}'
         res = requests.put(
@@ -836,6 +908,6 @@ class Api:
             headers=headers,
             params=payload
         )
-        if res.text == 'success':
+        if res.text == 'success' or res.text == 'Succeeded':
             return res.text
         return self._check_results(res)
