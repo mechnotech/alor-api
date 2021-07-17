@@ -375,17 +375,15 @@ class Api:
         """
         if self.exchange:
             exchange = self.exchange
-        payload = {
-            'limit': limit,
-            'sector': sector,
-            'cficode': cficode,
-            'exchange': exchange
-        }
-        query = {'query': ticker}
+        query = {'query': ticker,
+                 'limit': limit,
+                 'sector': sector,
+                 'cficode': cficode,
+                 'exchange': exchange
+                 }
         res = requests.get(
             url=f'{URL_API}/md/v2/securities',
             params=query,
-            data=payload,
             headers=self._headers
         )
         return self._check_results(res)
@@ -492,10 +490,10 @@ class Api:
         """
         if self.exchange:
             exchange = self.exchange
-        payload = {'from': start, 'to': finish}
+        query = {'from': start, 'to': finish}
         res = requests.get(
             url=f'{URL_API}/md/v2/Securities/{exchange}/{ticker}/alltrades',
-            data=payload,
+            params=query,
             headers=self._headers
         )
         return self._check_results(res)
