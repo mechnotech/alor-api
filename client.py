@@ -2,8 +2,10 @@ import asyncio
 import hashlib
 import json
 import logging
+from copy import copy
 from datetime import datetime, date
 from json import JSONDecodeError
+from typing import List
 
 import aiohttp
 import requests
@@ -908,4 +910,72 @@ class Api:
         )
         if res.text == 'success' or res.text == 'Succeeded':
             return res.text
+        return self._check_results(res)
+
+    def set_group_order(
+            self,
+            order_ids: List[int],
+            exchange: str = None,
+            portfolio: str = None,
+            order_type: str = 'Limit',
+    ):
+        """
+        Сгруппировать ордера (для последующей отмены разом, например)
+        :return:
+        """
+        payload = {
+            'Orders': list(),
+            'ExecutionPolicy': 'OnExecuteOrCancel'
+        }
+        if self.exchange:
+            exchange = self.exchange
+        if self.portfolio:
+            portfolio = self.portfolio
+        default_order = {
+            'Portfolio': portfolio,
+            'Exchange': exchange,
+            'OrderId': 0,
+            'Type': order_type
+        }
+        for order_id in order_ids:
+            order = copy(default_order)
+            order['OrderId'] = order_id
+            payload['Orders'].append(order)
+
+        headers = self._headers
+        res = requests.post(
+            url=f'{URL_API}/commandapi/api/orderGroups',
+            headers=headers,
+            json=payload
+        )
+        return self._check_results(res)
+
+    def cancel_orders_group(self, group_id: str):
+        """
+        Отмена всех ордеров в группе
+        :param group_id:
+        :return:
+        """
+        headers = self._headers
+        res = requests.delete(
+            url=f'{URL_API}/commandapi/api/orderGroups/{group_id}',
+            headers=headers,
+
+        )
+        if res.text == 'success' or res.text == 'Succeeded':
+            return res.text
+        return self._check_results(res)
+
+    def get_orders_group(self, group_id: str):
+        """
+        Получить инфо по группе ордеров
+        :param group_id:
+        :return:
+        """
+        headers = self._headers
+        res = requests.get(
+            url=f'{URL_API}/commandapi/api/orderGroups/{group_id}',
+            headers=headers,
+
+        )
         return self._check_results(res)
