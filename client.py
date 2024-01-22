@@ -952,7 +952,7 @@ class Api:
 
     def cancel_orders_group(self, group_id: str):
         """
-        Отмена всех ордеров в группе
+        Отмена группирования
         :param group_id:
         :return:
         """
